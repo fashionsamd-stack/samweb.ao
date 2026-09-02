@@ -6,7 +6,7 @@ use CodeIgniter\Model;
 
 class MensagemTicketModel extends Model
 {
-    protected $table            = 'mensagemtickets';
+    protected $table            = 'mensagem_ticket';
     protected $primaryKey       = 'id';
     protected $useAutoIncrement = true;
     protected $returnType       = 'array';

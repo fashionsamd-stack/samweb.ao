@@ -6,7 +6,7 @@ use CodeIgniter\Model;
 
 class WebsiteModel extends Model
 {
-    protected $table            = 'websites';
+    protected $table            = 'website';
     protected $primaryKey       = 'id';
     protected $useAutoIncrement = true;
     protected $returnType       = 'array';

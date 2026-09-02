@@ -6,7 +6,7 @@ use CodeIgniter\Model;
 
 class ItemPedidoModel extends Model
 {
-    protected $table            = 'itempedidos';
+    protected $table            = 'item_pedido';
     protected $primaryKey       = 'id';
     protected $useAutoIncrement = true;
     protected $returnType       = 'array';

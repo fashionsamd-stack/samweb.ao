@@ -6,7 +6,7 @@ use CodeIgniter\Model;
 
 class FacturaModel extends Model
 {
-    protected $table            = 'facturas';
+    protected $table            = 'factura';
     protected $primaryKey       = 'id';
     protected $useAutoIncrement = true;
     protected $returnType       = 'array';

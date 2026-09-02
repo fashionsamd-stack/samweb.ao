@@ -6,7 +6,7 @@ use CodeIgniter\Model;
 
 class UtilizadorModel extends Model
 {
-    protected $table            = 'utilizadors';
+    protected $table            = 'utilizador';
     protected $primaryKey       = 'id';
     protected $useAutoIncrement = true;
     protected $returnType       = 'array';

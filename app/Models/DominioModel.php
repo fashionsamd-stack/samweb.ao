@@ -6,7 +6,7 @@ use CodeIgniter\Model;
 
 class DominioModel extends Model
 {
-    protected $table            = 'dominios';
+    protected $table            = 'dominio';
     protected $primaryKey       = 'id';
     protected $useAutoIncrement = true;
     protected $returnType       = 'array';

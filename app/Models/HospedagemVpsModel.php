@@ -6,7 +6,7 @@ use CodeIgniter\Model;
 
 class HospedagemVpsModel extends Model
 {
-    protected $table            = 'hospedagemvps';
+    protected $table            = 'hospedagem_vps';
     protected $primaryKey       = 'id';
     protected $useAutoIncrement = true;
     protected $returnType       = 'array';

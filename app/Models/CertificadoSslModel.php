@@ -6,7 +6,7 @@ use CodeIgniter\Model;
 
 class CertificadoSslModel extends Model
 {
-    protected $table            = 'certificadossls';
+    protected $table            = 'certificadossl';
     protected $primaryKey       = 'id';
     protected $useAutoIncrement = true;
     protected $returnType       = 'array';

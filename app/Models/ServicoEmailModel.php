@@ -6,7 +6,7 @@ use CodeIgniter\Model;
 
 class ServicoEmailModel extends Model
 {
-    protected $table            = 'servicoemails';
+    protected $table            = 'servico_email';
     protected $primaryKey       = 'id';
     protected $useAutoIncrement = true;
     protected $returnType       = 'array';

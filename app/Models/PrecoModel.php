@@ -6,7 +6,7 @@ use CodeIgniter\Model;
 
 class PrecoModel extends Model
 {
-    protected $table            = 'precos';
+    protected $table            = 'preco';
     protected $primaryKey       = 'id';
     protected $useAutoIncrement = true;
     protected $returnType       = 'array';
