@@ -18,3 +18,8 @@ $routes->get('categorias/(:num)', 'CategoriaController::showCategoria/$1');
 $routes->post('categorias', 'CategoriaController::storeCategoria');
 $routes->put('categorias/(:num)', 'CategoriaController::updateCategoria/$1');
 $routes->delete('categorias/(:num)', 'CategoriaController::deleteCategoria/$1');
+$routes->get('produtos', 'ProdutoController::index');
+$routes->get('produtos/(:num)', 'ProdutoController::show/$1');
+$routes->post('produtos', 'ProdutoController::storeProduto');
+$routes->put('produtos/(:num)', 'ProdutoController::update/$1');
+$routes->delete('produtos/(:num)', 'ProdutoController::delete/$1');
