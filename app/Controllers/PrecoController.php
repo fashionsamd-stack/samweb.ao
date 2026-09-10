@@ -54,7 +54,7 @@ class PrecoController extends BaseController
     }
 
     // Criar preço
-    public function storePedido()
+    public function storePreco()
     {
         $dados = $this->request->getJSON(true);
 
