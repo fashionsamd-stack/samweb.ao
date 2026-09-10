@@ -18,8 +18,23 @@ $routes->get('categorias/(:num)', 'CategoriaController::showCategoria/$1');
 $routes->post('categorias', 'CategoriaController::storeCategoria');
 $routes->put('categorias/(:num)', 'CategoriaController::updateCategoria/$1');
 $routes->delete('categorias/(:num)', 'CategoriaController::deleteCategoria/$1');
+//CRUD de Produtos
 $routes->get('produtos', 'ProdutoController::index');
 $routes->get('produtos/(:num)', 'ProdutoController::show/$1');
 $routes->post('produtos', 'ProdutoController::storeProduto');
 $routes->put('produtos/(:num)', 'ProdutoController::update/$1');
 $routes->delete('produtos/(:num)', 'ProdutoController::delete/$1');
+//CRUD de Pedidos
+$routes->get('precos', 'PrecoController::index');
+$routes->get('precos/(:num)', 'PrecoController::show/$1');
+$routes->post('precos', 'PrecoController::storePedido');
+$routes->put('precos/(:num)', 'PrecoController::update/$1');
+$routes->delete('precos/(:num)', 'PrecoController::delete/$1');
+
+//CRUD de Dominio
+
+$routes->get('dominios', 'DominioController::index');
+$routes->get('dominios/(:num)', 'DominioController::show/$1');
+$routes->post('dominios', 'DominioController::storeDominio');
+$routes->put('dominios/(:num)', 'DominioController::update/$1');
+$routes->delete('dominios/(:num)', 'DominioController::delete/$1');
