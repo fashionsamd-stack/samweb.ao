@@ -75,3 +75,24 @@ $routes->get('pedido/(:num)', 'PedidoController::show/$1');
 $routes->post('pedido', 'PedidoController::create');
 $routes->put('pedido/(:num)', 'PedidoController::update/$1');
 $routes->delete('pedido/(:num)', 'PedidoController::delete/$1');
+
+//CRUD de ItemPedidos 
+$routes->get('itemPedido', 'ItemPedidoController::index');
+$routes->get('itemPedido/(:num)', 'ItemPedidoController::show/$1');
+$routes->post('itemPedido', 'ItemPedidoController::create');
+$routes->put('itemPedido/(:num)', 'ItemPedidoController::update/$1');
+$routes->delete('itemPedido/(:num)', 'ItemPedidoController::delete/$1');
+
+//CRU de Factura
+$routes->get('factura', 'FacturaController::index');
+$routes->get('factura/(:num)', 'FacturaController::show/$1');
+$routes->post('factura', 'FacturaController::create');
+$routes->put('factura/(:num)', 'FacturaController::update/$1');
+$routes->delete('factura/(:num)', 'FacturaController::delete/$1');
+
+//CRUD  de Pagamento
+$routes->get('pagamento', 'PagamentoController::index');
+$routes->get('pagamento/(:num)', 'PagamentoController::show/$1');
+$routes->post('pagamento', 'PagamentoController::create');
+$routes->put('pagamento/(:num)', 'PagamentoController::update/$1');
+$routes->delete('pagamento/(:num)', 'PagamentoController::delete/$1');

@@ -10,6 +10,7 @@ use App\Models\ClienteModel;
 use App\Models\DominioModel;
 use App\Models\ProdutoModel;
 
+
 class CertificadoSslController extends BaseController
 {
     protected $certificadoSslModel;

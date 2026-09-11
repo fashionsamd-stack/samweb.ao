@@ -7,6 +7,7 @@ use CodeIgniter\HTTP\RequestInterface;
 use CodeIgniter\HTTP\ResponseInterface;
 use Psr\Log\LoggerInterface;
 use App\Models\CategoriaModel;
+use CodeIgniter\RESTful\ResourceController;
 
 /**
  * BaseController provides a convenient place for loading components
@@ -19,7 +20,7 @@ use App\Models\CategoriaModel;
  *
  * For security, be sure to declare any new methods as protected or private.
  */
-class CategoriaController extends BaseController
+class CategoriaController extends ResourceController
 {
     protected $categoriaModel;
 

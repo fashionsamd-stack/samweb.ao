@@ -5,6 +5,7 @@ namespace App\Controllers;
 use App\Controllers\BaseController;
 use CodeIgniter\HTTP\ResponseInterface;
 
+
 use App\Models\DominioModel;
 use App\Models\ClienteModel;
 

@@ -12,6 +12,7 @@ class FacturaModel extends Model
     protected $returnType       = 'array';
    
     protected $allowedFields    = [
+        'tipo',   
         'cliente_id',
         'pedido_id',
         'numero',

@@ -78,21 +78,21 @@ class PedidoController extends ResourceController
         }
 
         // Validar cliente
-        if (empty($dados['id_cliente'])) {
+        if (empty($dados['cliente_id'])) {
             return $this->failValidationErrors([
-                'id_cliente' => 'O cliente é obrigatório.'
+                'cliente_id' => 'O cliente é obrigatório.'
             ]);
         }
 
         // Verificar se o cliente existe
         $cliente = $this->clienteModel
-            ->where('id', $dados['id_cliente'])
+            ->where('id', $dados['cliente_id'])
             ->where('estado', 1)
             ->first();
 
         if (!$cliente) {
             return $this->failValidationErrors([
-                'id_cliente' => 'Cliente não encontrado ou está inactivo.'
+                'cliente_id' => 'Cliente não encontrado ou está inactivo.'
             ]);
         }
 
@@ -100,7 +100,7 @@ class PedidoController extends ResourceController
         $numero = $this->gerarNumeroPedido();
 
         $novoPedido = [
-            'id_cliente' => $dados['id_cliente'],
+            'cliente_id' => $dados['cliente_id'],
             'numero'     => $numero,
             'total'      => 0,
             'estado'     => 'Pendente',
@@ -178,20 +178,20 @@ class PedidoController extends ResourceController
         }
 
         // Permitir alteração do cliente apenas se necessário
-        if (isset($dados['id_cliente'])) {
+        if (isset($dados['cliente_id'])) {
 
             $cliente = $this->clienteModel
-                ->where('id', $dados['id_cliente'])
+                ->where('id', $dados['cliente_id'])
                 ->where('estado', 1)
                 ->first();
 
             if (!$cliente) {
                 return $this->failValidationErrors([
-                    'id_cliente' => 'Cliente não encontrado ou está inactivo.'
+                    'cliente_id' => 'Cliente não encontrado ou está inactivo.'
                 ]);
             }
 
-            $dadosActualizar['id_cliente'] = $dados['id_cliente'];
+            $dadosActualizar['cliente_id'] = $dados['cliente_id'];
         }
 
         if (empty($dadosActualizar)) {
