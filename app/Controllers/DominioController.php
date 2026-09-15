@@ -24,7 +24,7 @@ class DominioController extends BaseController
     public function index()
     {
         $dominios = $this->dominioModel
-            ->where('estado', 'Activo')
+            ->where('estado', 1)
             ->findAll();
 
         return $this->response->setJSON([

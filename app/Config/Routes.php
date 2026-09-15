@@ -96,3 +96,12 @@ $routes->get('pagamento/(:num)', 'PagamentoController::show/$1');
 $routes->post('pagamento', 'PagamentoController::create');
 $routes->put('pagamento/(:num)', 'PagamentoController::update/$1');
 $routes->delete('pagamento/(:num)', 'PagamentoController::delete/$1');
+
+//Provisionamento o Criar
+$routes->get('provisionamento','ProvisionamentoController::index');
+$routes->get('provisionamento/(:num)','ProvisionamentoController::show/$1');
+$routes->post('provisionamento','ProvisionamentoController::create');
+$routes->put('provisionamento/(:num)','ProvisionamentoController::update/$1');
+$routes->delete('provisionamento/(:num)','ProvisionamentoController::delete/$1');
+$routes->post('provisionamento/executar/(:num)','ProvisionamentoController::executar/$1'
+);
