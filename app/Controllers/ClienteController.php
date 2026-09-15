@@ -4,9 +4,9 @@ namespace App\Controllers;
 
 use CodeIgniter\Controller;
 use CodeIgniter\HTTP\RequestInterface;
-use CodeIgniter\HTTP\ResponseInterface;
 use Psr\Log\LoggerInterface;
 use App\Models\ClienteModel;
+use CodeIgniter\RESTful\ResourceController;
 
 /**
  * BaseController provides a convenient place for loading components
@@ -19,7 +19,7 @@ use App\Models\ClienteModel;
  *
  * For security, be sure to declare any new methods as protected or private.
  */
-class ClienteController extends BaseController
+class ClienteController extends ResourceController
 {
     protected $clienteModel;
     public  function __construct()
