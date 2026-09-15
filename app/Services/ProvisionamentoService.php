@@ -9,6 +9,7 @@ use App\Models\ProdutoModel;
 use App\Models\PrecoModel;
 use App\Models\DominioModel;
 use App\Models\AlojamentoModel;
+use App\Models\ServicoEmailModel;
 
 class ProvisionamentoService
 {
@@ -19,6 +20,7 @@ class ProvisionamentoService
     protected $precoModel;
     protected $dominioModel;
     protected $alojamentoModel;
+    protected $servicoEmailModel;
 
     public function __construct()
     {
@@ -29,6 +31,7 @@ class ProvisionamentoService
         $this->precoModel = new PrecoModel();
         $this->dominioModel = new DominioModel();
         $this->alojamentoModel = new AlojamentoModel();
+        $this->servicoEmailModel = new ServicoEmailModel();
     }
 
     /**
@@ -135,7 +138,7 @@ class ProvisionamentoService
                     );
                     break;
 
-                case 'Certificado S':
+                case 'Certificado SSL':
                     $resultado = $this->provisionarCertificadoSsl(
                         $pedido,
                         $item,
@@ -533,13 +536,178 @@ private function provisionarAlojamento($pedido, $item, $produto)
     /**
      * Provisionamento de serviço de e-mail
      */
-    private function provisionarServicoEmail($pedido, $item, $produto)
-    {
-        return [
-            'sucesso' => true,
-            'mensagem' => 'Serviço de e-mail provisionado com sucesso.'
-        ];
+  private function provisionarServicoEmail($pedido, $item, $produto)
+{
+    // ==========================================
+    // 1. VERIFICAR DOMÍNIO ASSOCIADO
+    // ==========================================
+
+    if (empty($item['dominio_id'])) {
+        throw new \Exception(
+            'O item do pedido não possui um domínio associado.'
+        );
     }
+
+
+    // ==========================================
+    // 2. PROCURAR DOMÍNIO
+    // ==========================================
+
+    $dominio = $this->dominioModel
+        ->find($item['dominio_id']);
+
+    if (!$dominio) {
+        throw new \Exception(
+            'Domínio não encontrado.'
+        );
+    }
+
+
+    // ==========================================
+    // 3. CONFIRMAR QUE O DOMÍNIO PERTENCE
+    //    AO CLIENTE DO PEDIDO
+    // ==========================================
+
+    if ($dominio['cliente_id'] != $pedido['id_cliente']) {
+        throw new \Exception(
+            'O domínio não pertence ao cliente do pedido.'
+        );
+    }
+
+
+    // ==========================================
+    // 4. CONFIRMAR QUE O DOMÍNIO ESTÁ ACTIVO
+    // ==========================================
+
+    if (isset($dominio['estado']) && $dominio['estado'] != 1) {
+        throw new \Exception(
+            'O domínio não está activo. Não é possível activar o serviço de email.'
+        );
+    }
+
+
+    // ==========================================
+    // 5. VERIFICAR PERÍODO
+    // ==========================================
+
+    if (empty($item['periodo'])) {
+        throw new \Exception(
+            'O período do serviço de email não está definido no item do pedido.'
+        );
+    }
+
+    $periodo = trim(
+        strtolower($item['periodo'])
+    );
+
+
+    // ==========================================
+    // 6. DATA DE INÍCIO
+    // ==========================================
+
+    $inicio = new \DateTime();
+
+
+    // ==========================================
+    // 7. CALCULAR EXPIRAÇÃO
+    // ==========================================
+
+    $expiracao = clone $inicio;
+
+    switch ($periodo) {
+
+        case '1 ano':
+
+            $expiracao->modify('+1 year');
+
+            break;
+
+
+        case '2 anos':
+
+            $expiracao->modify('+2 years');
+
+            break;
+
+
+        default:
+
+            throw new \Exception(
+                'Período de serviço de email não suportado: '
+                . $item['periodo']
+            );
+    }
+
+
+    // ==========================================
+    // 8. FORMATAR DATAS
+    // ==========================================
+
+    $dataInicio = $inicio->format('Y-m-d');
+
+    $dataExpiracao = $expiracao->format('Y-m-d');
+
+
+    // ==========================================
+    // 9. VERIFICAR SE JÁ EXISTE SERVIÇO
+    //    DE EMAIL ACTIVO
+    // ==========================================
+
+    $emailExistente = $this->servicoEmailModel
+        ->where('cliente_id', $pedido['id_cliente'])
+        ->where('dominio_id', $item['dominio_id'])
+        ->where('produto_id', $item['produto_id'])
+        ->where('estado', 'Activo')
+        ->first();
+
+    if ($emailExistente) {
+        throw new \Exception(
+            'Já existe um serviço de email activo para este domínio.'
+        );
+    }
+
+
+    // ==========================================
+    // 10. CRIAR SERVIÇO DE EMAIL
+    // ==========================================
+
+    $dadosEmail = [
+        'cliente_id' => $pedido['id_cliente'],
+        'dominio_id' => $item['dominio_id'],
+        'produto_id' => $item['produto_id'],
+        'inicio' => $dataInicio,
+        'expiracao' => $dataExpiracao,
+        'estado' => 'Activo'
+    ];
+
+
+    $servicoEmailId = $this->servicoEmailModel
+        ->insert($dadosEmail);
+
+
+    // ==========================================
+    // 11. CONFIRMAR CRIAÇÃO
+    // ==========================================
+
+    if (!$servicoEmailId) {
+        throw new \Exception(
+            'Não foi possível criar o serviço de email.'
+        );
+    }
+
+
+    // ==========================================
+    // 12. RETORNAR RESULTADO
+    // ==========================================
+
+    return [
+        'sucesso' => true,
+        'mensagem' => 'Serviço de email provisionado com sucesso.',
+        'servico_email_id' => $servicoEmailId,
+        'inicio' => $dataInicio,
+        'expiracao' => $dataExpiracao
+    ];
+}
 
 
     /**
