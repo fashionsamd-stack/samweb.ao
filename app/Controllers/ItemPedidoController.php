@@ -65,10 +65,11 @@ class ItemPedidoController extends ResourceController
             empty($dados['pedido_id']) ||
             empty($dados['produto_id']) ||
             empty($dados['dominio_id']) ||
-            empty($dados['quantidade'])
+            empty($dados['quantidade']) ||
+            empty($dados['periodo'])
         ) {
             return $this->failValidationErrors(
-                'pedido_id, produto_id, dominio_id e quantidade são obrigatórios.'
+                'pedido_id, produto_id, dominio_id, quantidade e periodo são obrigatórios.'
             );
         }
 
@@ -167,14 +168,16 @@ class ItemPedidoController extends ResourceController
         // 9. BUSCAR PREÇO DO PRODUTO
         // ==============================
 
+        $periodo = trim($dados['periodo']);
+
         $preco = $precoModel
             ->where('produto_id', $dados['produto_id'])
-            ->orderBy('id', 'DESC')
+            ->where('periodo', $periodo)
             ->first();
 
         if (!$preco) {
             return $this->failValidationErrors(
-                'Não existe preço definido para este produto.'
+                'Não existe preço definido para este produto no período seleccionado.'
             );
         }
 
@@ -352,14 +355,16 @@ class ItemPedidoController extends ResourceController
         // BUSCAR PREÇO ACTUAL
         // ==============================
 
+        $periodo = trim($dados['periodo']);
+
         $preco = $precoModel
-            ->where('produto_id', $produtoId)
-            ->orderBy('id', 'DESC')
+            ->where('produto_id', $dados['produto_id'])
+            ->where('periodo', $periodo)
             ->first();
 
         if (!$preco) {
             return $this->failValidationErrors(
-                'Não existe preço definido para este produto.'
+                'Não existe preço definido para este produto no período seleccionado.'
             );
         }
 

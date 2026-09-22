@@ -105,3 +105,6 @@ $routes->put('provisionamento/(:num)','ProvisionamentoController::update/$1');
 $routes->delete('provisionamento/(:num)','ProvisionamentoController::delete/$1');
 $routes->post('provisionamento/executar/(:num)','ProvisionamentoController::executar/$1'
 );
+//Testar automação
+$routes->post('provisionamento/processar-pedido/(:num)','ProvisionamentoController::processarPedido/$1'
+);

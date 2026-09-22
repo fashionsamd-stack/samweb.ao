@@ -8,6 +8,8 @@ namespace App\Controllers;
 use App\Models\PagamentoModel;
 use App\Models\FacturaModel;
 use CodeIgniter\RESTful\ResourceController;
+use App\Models\PedidoModel;
+use App\Services\ProvisionamentoService;
 
 class PagamentoController extends ResourceController
 {
@@ -15,11 +17,16 @@ class PagamentoController extends ResourceController
 
     protected $pagamentoModel;
     protected $facturaModel;
+    protected $pedidoModel;
+    protected $provisionamentoService;
+
 
     public function __construct()
     {
         $this->pagamentoModel = new PagamentoModel();
         $this->facturaModel = new FacturaModel();
+        $this->pedidoModel = new PedidoModel();
+        $this->provisionamentoService = new ProvisionamentoService();
     }
 
     /**
@@ -230,12 +237,27 @@ class PagamentoController extends ResourceController
         // ---------------------------------------
 
         $novoTotalPago = $totalPago + $valorPagamento;
+        $resultadoProvisionamento = null;
 
         // ---------------------------------------
         // 11. Actualizar estado da factura
         // ---------------------------------------
 
+        /**if ($novoTotalPago >= $totalFactura) {
+
+            $this->facturaModel->update(
+                $factura['id'],
+                [
+                    'estado' => 'Paga'
+                ]
+            );
+        }*/
+
         if ($novoTotalPago >= $totalFactura) {
+
+            // ==========================================
+            // 11. FACTURA PAGA
+            // ==========================================
 
             $this->facturaModel->update(
                 $factura['id'],
@@ -244,6 +266,42 @@ class PagamentoController extends ResourceController
                 ]
             );
 
+
+            // ==========================================
+            // 12. OBTER PEDIDO DA FACTURA
+            // ==========================================
+
+            $pedido = $this->pedidoModel
+                ->find($factura['pedido_id']);
+
+
+            if (!$pedido) {
+
+                return $this->failServerError(
+                    'Pagamento registado, mas o pedido da factura não foi encontrado.'
+                );
+            }
+
+
+            // ==========================================
+            // 13. ALTERAR PEDIDO PARA PAGO
+            // ==========================================
+
+            $this->pedidoModel->update(
+                $pedido['id'],
+                [
+                    'estado' => 'Pago'
+                ]
+            );
+
+
+            // ==========================================
+            // 14. PROCESSAR PROVISIONAMENTO
+            // ==========================================
+
+            $resultadoProvisionamento =
+                $this->provisionamentoService
+                ->processarPedido($pedido['id']);
         }
 
         $pagamento = $this->pagamentoModel->find($id);
@@ -270,7 +328,8 @@ class PagamentoController extends ResourceController
                     2,
                     '.',
                     ''
-                )
+                ),
+                 'provisionamento' => $resultadoProvisionamento
             ]
         ]);
     }

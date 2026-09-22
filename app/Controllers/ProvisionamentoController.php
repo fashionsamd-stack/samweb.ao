@@ -1,6 +1,7 @@
 <?php
 
 namespace App\Controllers;
+
 use App\Services\ProvisionamentoService;
 use App\Models\ProvisionamentoModel;
 use App\Models\PedidoModel;
@@ -102,7 +103,7 @@ class ProvisionamentoController extends ResourceController
         if (empty($dados['item_pedido_id'])) {
             return $this->failValidationErrors([
                 'item_pedido_id' =>
-                    'O item do pedido é obrigatório.'
+                'O item do pedido é obrigatório.'
             ]);
         }
 
@@ -114,7 +115,7 @@ class ProvisionamentoController extends ResourceController
         if (!$item) {
             return $this->failValidationErrors([
                 'item_pedido_id' =>
-                    'O item não pertence ao pedido informado.'
+                'O item não pertence ao pedido informado.'
             ]);
         }
 
@@ -125,7 +126,7 @@ class ProvisionamentoController extends ResourceController
         if (empty($dados['tipo_servico'])) {
             return $this->failValidationErrors([
                 'tipo_servico' =>
-                    'O tipo de serviço é obrigatório.'
+                'O tipo de serviço é obrigatório.'
             ]);
         }
 
@@ -144,7 +145,7 @@ class ProvisionamentoController extends ResourceController
         )) {
             return $this->failValidationErrors([
                 'tipo_servico' =>
-                    'Tipo de serviço inválido.'
+                'Tipo de serviço inválido.'
             ]);
         }
 
@@ -159,7 +160,7 @@ class ProvisionamentoController extends ResourceController
         if ($existente) {
             return $this->failValidationErrors([
                 'item_pedido_id' =>
-                    'Este item já possui um provisionamento.'
+                'Este item já possui um provisionamento.'
             ]);
         }
 
@@ -182,7 +183,7 @@ class ProvisionamentoController extends ResourceController
         )) {
             return $this->failValidationErrors([
                 'estado' =>
-                    'Estado de provisionamento inválido.'
+                'Estado de provisionamento inválido.'
             ]);
         }
 
@@ -215,7 +216,7 @@ class ProvisionamentoController extends ResourceController
             ) {
                 return $this->failValidationErrors([
                     'data_inicio' =>
-                        'Data de início inválida. Use Y-m-d H:i:s.'
+                    'Data de início inválida. Use Y-m-d H:i:s.'
                 ]);
             }
 
@@ -247,7 +248,7 @@ class ProvisionamentoController extends ResourceController
             ) {
                 return $this->failValidationErrors([
                     'data_conclusao' =>
-                        'Data de conclusão inválida.'
+                    'Data de conclusão inválida.'
                 ]);
             }
 
@@ -286,7 +287,7 @@ class ProvisionamentoController extends ResourceController
         return $this->respondCreated([
             'status' => true,
             'mensagem' =>
-                'Provisionamento criado com sucesso.',
+            'Provisionamento criado com sucesso.',
             'dados' => $provisionamento
         ]);
     }
@@ -299,7 +300,7 @@ class ProvisionamentoController extends ResourceController
         if (!$id) {
             return $this->failValidationErrors([
                 'id' =>
-                    'O ID do provisionamento é obrigatório.'
+                'O ID do provisionamento é obrigatório.'
             ]);
         }
 
@@ -341,7 +342,7 @@ class ProvisionamentoController extends ResourceController
             )) {
                 return $this->failValidationErrors([
                     'estado' =>
-                        'Estado de provisionamento inválido.'
+                    'Estado de provisionamento inválido.'
                 ]);
             }
 
@@ -384,7 +385,7 @@ class ProvisionamentoController extends ResourceController
         if (empty($dadosActualizar)) {
             return $this->failValidationErrors([
                 'dados' =>
-                    'Nenhum campo válido foi enviado.'
+                'Nenhum campo válido foi enviado.'
             ]);
         }
 
@@ -399,7 +400,7 @@ class ProvisionamentoController extends ResourceController
         return $this->respond([
             'status' => true,
             'mensagem' =>
-                'Provisionamento actualizado com sucesso.',
+            'Provisionamento actualizado com sucesso.',
             'dados' => $actualizado
         ]);
     }
@@ -412,7 +413,7 @@ class ProvisionamentoController extends ResourceController
         if (!$id) {
             return $this->failValidationErrors([
                 'id' =>
-                    'O ID do provisionamento é obrigatório.'
+                'O ID do provisionamento é obrigatório.'
             ]);
         }
 
@@ -431,7 +432,7 @@ class ProvisionamentoController extends ResourceController
         ) {
             return $this->failValidationErrors([
                 'estado' =>
-                    'Um provisionamento concluído não pode ser cancelado.'
+                'Um provisionamento concluído não pode ser cancelado.'
             ]);
         }
 
@@ -440,57 +441,78 @@ class ProvisionamentoController extends ResourceController
             [
                 'estado' => 'Falhou',
                 'mensagem' =>
-                    'Provisionamento interrompido.'
+                'Provisionamento interrompido.'
             ]
         );
 
         return $this->respond([
             'status' => true,
             'mensagem' =>
-                'Provisionamento interrompido com sucesso.'
+            'Provisionamento interrompido com sucesso.'
         ]);
     }
     public function executar($id = null)
-{
-    // ==========================================
-    // 1. VALIDAR ID
-    // ==========================================
+    {
+        // ==========================================
+        // 1. VALIDAR ID
+        // ==========================================
 
-    if (!$id) {
-        return $this->failValidationErrors(
-            'ID do provisionamento é obrigatório.'
-        );
+        if (!$id) {
+            return $this->failValidationErrors(
+                'ID do provisionamento é obrigatório.'
+            );
+        }
+
+
+        // ==========================================
+        // 2. CHAMAR O SERVICE
+        // ==========================================
+
+        $service = new ProvisionamentoService();
+
+        $resultado = $service->executar($id);
+
+
+        // ==========================================
+        // 3. VERIFICAR RESULTADO
+        // ==========================================
+
+        if (!$resultado['sucesso']) {
+            return $this->fail(
+                $resultado['mensagem']
+            );
+        }
+
+
+        // ==========================================
+        // 4. RESPONDER
+        // ==========================================
+
+        return $this->respond([
+            'sucesso' => true,
+            'mensagem' => $resultado['mensagem'],
+            'dados' => $resultado['dados'] ?? null
+        ]);
     }
 
+    //Tester Automação
 
-    // ==========================================
-    // 2. CHAMAR O SERVICE
-    // ==========================================
+    public function processarPedido($pedidoId)
+    {
+        $service = new \App\Services\ProvisionamentoService();
 
-    $service = new ProvisionamentoService();
+        $resultado = $service->processarPedido($pedidoId);
 
-    $resultado = $service->executar($id);
+        if (!$resultado['sucesso']) {
+            return $this->respond(
+                $resultado,
+                400
+            );
+        }
 
-
-    // ==========================================
-    // 3. VERIFICAR RESULTADO
-    // ==========================================
-
-    if (!$resultado['sucesso']) {
-        return $this->fail(
-            $resultado['mensagem']
+        return $this->respond(
+            $resultado,
+            200
         );
     }
-
-
-    // ==========================================
-    // 4. RESPONDER
-    // ==========================================
-
-    return $this->respond([
-        'sucesso' => true,
-        'mensagem' => $resultado['mensagem'],
-        'dados' => $resultado['dados'] ?? null
-    ]);
-}
 }

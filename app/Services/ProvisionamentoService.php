@@ -13,6 +13,7 @@ use App\Models\ServicoEmailModel;
 use App\Models\CertificadoSslModel;
 use App\Models\HospedagemVpsModel;
 use App\Models\WebsiteModel;
+use App\Models\CategoriaModel;
 
 class ProvisionamentoService
 {
@@ -27,6 +28,7 @@ class ProvisionamentoService
     protected $certificadoSslModel;
     protected $hospedagemVpsModel;
     protected $websiteModel;
+    protected $categoriaModel;
 
     public function __construct()
     {
@@ -41,6 +43,7 @@ class ProvisionamentoService
         $this->certificadoSslModel = new CertificadoSslModel();
         $this->hospedagemVpsModel = new HospedagemVpsModel();
         $this->websiteModel = new WebsiteModel();
+        $this->categoriaModel = new CategoriaModel();
     }
 
     /**
@@ -124,6 +127,7 @@ class ProvisionamentoService
             switch ($provisionamento['tipo_servico']) {
 
                 case 'Dominio':
+                case 'domínios':
                     $resultado = $this->provisionarDominio(
                         $pedido,
                         $item,
@@ -132,6 +136,7 @@ class ProvisionamentoService
                     break;
 
                 case 'Alojamento':
+                case 'hosting':
                     $resultado = $this->provisionarAlojamento(
                         $pedido,
                         $item,
@@ -214,21 +219,24 @@ class ProvisionamentoService
     /**
      * Provisionamento de domínio
      */
-    private function provisionarDominio($pedido, $item, $produto)
-    {
+    private function provisionarDominio(
+        $pedido,
+        $item,
+        $produto
+    ) {
         // ==========================================
-        // 1. VERIFICAR DOMÍNIO ASSOCIADO
+        // 1. Validar domínio do item
         // ==========================================
 
         if (empty($item['dominio_id'])) {
             throw new \Exception(
-                'O item do pedido não possui um domínio associado.'
+                'O item do pedido não possui domínio associado.'
             );
         }
 
 
         // ==========================================
-        // 2. PROCURAR DOMÍNIO
+        // 2. Procurar o domínio
         // ==========================================
 
         $dominio = $this->dominioModel
@@ -242,10 +250,14 @@ class ProvisionamentoService
 
 
         // ==========================================
-        // 3. CONFIRMAR PROPRIETÁRIO
+        // 3. Confirmar que o domínio pertence
+        //    ao cliente do pedido
         // ==========================================
 
-        if ($dominio['cliente_id'] != $pedido['cliente_id']) {
+        if (
+            $dominio['cliente_id']
+            != $pedido['cliente_id']
+        ) {
             throw new \Exception(
                 'O domínio não pertence ao cliente do pedido.'
             );
@@ -253,119 +265,75 @@ class ProvisionamentoService
 
 
         // ==========================================
-        // 4. VERIFICAR PERÍODO
+        // 4. Obter o período comprado
         // ==========================================
 
-        if (empty($item['periodo'])) {
+        $periodo = trim($item['periodo']);
+
+        if (empty($periodo)) {
             throw new \Exception(
-                'O período do domínio não está definido no item do pedido.'
+                'O período do domínio não foi informado.'
             );
         }
 
-        $periodo = trim(
-            strtolower($item['periodo'])
+
+        // ==========================================
+        // 5. Domínio já activo → RENOVAÇÃO
+        // ==========================================
+
+        if ((int) $dominio['estado'] === 1) {
+
+            $dataBase = new \DateTime(
+                $dominio['expiracao']
+            );
+
+            $novaExpiracao = $this->calcularExpiracaoDominio(
+                $dataBase,
+                $periodo
+            );
+
+            $this->dominioModel->update(
+                $dominio['id'],
+                [
+                    'expiracao' => $novaExpiracao->format('Y-m-d'),
+                    'estado' => 1
+                ]
+            );
+
+            return [
+                'sucesso' => true,
+                'mensagem' =>
+                'Domínio renovado com sucesso.'
+            ];
+        }
+
+
+        // ==========================================
+        // 6. Domínio inactivo → ACTIVAR
+        // ==========================================
+
+        $dataInicio = new \DateTime();
+
+        $dataExpiracao = $this->calcularExpiracaoDominio(
+            $dataInicio,
+            $periodo
         );
 
 
-        // ==========================================
-        // 5. DATA DE INÍCIO
-        // ==========================================
+        $this->dominioModel->update(
+            $dominio['id'],
+            [
+                'inicio' => $dataInicio->format('Y-m-d'),
+                'expiracao' => $dataExpiracao->format('Y-m-d'),
+                'estado' => 1
+            ]
+        );
 
-        $inicio = new \DateTime();
-
-
-        // ==========================================
-        // 6. CALCULAR EXPIRAÇÃO
-        // ==========================================
-
-        $expiracao = clone $inicio;
-
-        switch ($periodo) {
-
-            case '1 ano':
-
-                $expiracao->modify('+1 year');
-
-                break;
-
-
-            case '2 anos':
-
-                $expiracao->modify('+2 years');
-
-                break;
-
-
-            default:
-
-                throw new \Exception(
-                    'Período de domínio não suportado: '
-                        . $item['periodo']
-                );
-        }
-
-
-        // ==========================================
-        // 7. FORMATAR DATAS
-        // ==========================================
-
-        $dataInicio = $inicio->format('Y-m-d');
-
-        $dataExpiracao = $expiracao->format('Y-m-d');
-
-
-        // ==========================================
-        // 8. VERIFICAR SE JÁ ESTÁ ACTIVO
-        // ==========================================
-
-        if (isset($dominio['estado']) && $dominio['estado'] == 1) {
-            throw new \Exception(
-                'O domínio já está activo.'
-            );
-        }
-
-
-        // ==========================================
-        // 9. ACTIVAR DOMÍNIO
-        // ==========================================
-
-        $dadosDominio = [
-            'inicio' => $dataInicio,
-            'expiracao' => $dataExpiracao,
-            'renovacao_auto' => 1,
-            'estado' => 1
-        ];
-
-
-        $actualizado = $this->dominioModel
-            ->update(
-                $dominio['id'],
-                $dadosDominio
-            );
-
-
-        // ==========================================
-        // 10. CONFIRMAR ACTUALIZAÇÃO
-        // ==========================================
-
-        if (!$actualizado) {
-            throw new \Exception(
-                'Não foi possível activar o domínio.'
-            );
-        }
-
-
-        // ==========================================
-        // 11. RETORNAR RESULTADO
-        // ==========================================
 
         return [
             'sucesso' => true,
-            'mensagem' => 'Domínio provisionado com sucesso.',
-            'dominio_id' => $dominio['id'],
-            'nome' => $dominio['nome'],
-            'inicio' => $dataInicio,
-            'expiracao' => $dataExpiracao
+            'mensagem' =>
+            'Domínio provisionado com sucesso.'
         ];
     }
 
@@ -373,170 +341,106 @@ class ProvisionamentoService
     /**
      * Provisionamento de alojamento
      */
-    private function provisionarAlojamento($pedido, $item, $produto)
-    {
+    private function provisionarAlojamento(
+        $pedido,
+        $item,
+        $produto
+    ) {
         // ==========================================
-        // 1. VERIFICAR DOMÍNIO
+        // 1. Dados principais
         // ==========================================
 
-        if (empty($item['dominio_id'])) {
+        $clienteId = $pedido['cliente_id'];
+        $dominioId = $item['dominio_id'];
+        $produtoId = $item['produto_id'];
+        $periodo   = trim($item['periodo']);
+
+
+        // ==========================================
+        // 2. Validar período
+        // ==========================================
+
+        if (empty($periodo)) {
             throw new \Exception(
-                'O item do pedido não possui um domínio associado.'
-            );
-        }
-
-        $dominio = $this->dominioModel
-            ->find($item['dominio_id']);
-
-        if (!$dominio) {
-            throw new \Exception(
-                'Domínio não encontrado.'
-            );
-        }
-
-
-        // ==========================================
-        // 2. CONFIRMAR QUE O DOMÍNIO PERTENCE
-        //    AO CLIENTE DO PEDIDO
-        // ==========================================
-
-        if ($dominio['cliente_id'] != $pedido['cliente_id']) {
-            throw new \Exception(
-                'O domínio não pertence ao cliente do pedido.'
+                'O período do alojamento não foi informado.'
             );
         }
 
 
         // ==========================================
-        // 3. VERIFICAR SE O DOMÍNIO ESTÁ ACTIVO
-        // ==========================================
-
-        if (isset($dominio['estado']) && $dominio['estado'] != 1) {
-            throw new \Exception(
-                'O domínio não está activo.'
-            );
-        }
-
-
-        // ==========================================
-        // 4. VERIFICAR PERÍODO
-        // ==========================================
-
-        if (empty($item['periodo'])) {
-            throw new \Exception(
-                'O período do alojamento não está definido no item do pedido.'
-            );
-        }
-
-        $periodo = trim(
-            strtolower($item['periodo'])
-        );
-
-
-        // ==========================================
-        // 5. DATA DE INÍCIO
-        // ==========================================
-
-        $inicio = new \DateTime();
-
-
-        // ==========================================
-        // 6. CALCULAR DATA DE EXPIRAÇÃO
-        // ==========================================
-
-        $expiracao = clone $inicio;
-
-        switch ($periodo) {
-
-            case '1 ano':
-
-                $expiracao->modify('+1 year');
-
-                break;
-
-
-            case '2 anos':
-
-                $expiracao->modify('+2 years');
-
-                break;
-
-
-            default:
-
-                throw new \Exception(
-                    'Período de alojamento não suportado: '
-                        . $item['periodo']
-                );
-        }
-
-
-        // ==========================================
-        // 7. FORMATAR DATAS
-        // ==========================================
-
-        $dataInicio = $inicio->format('Y-m-d');
-
-        $dataExpiracao = $expiracao->format('Y-m-d');
-
-
-        // ==========================================
-        // 8. VERIFICAR SE JÁ EXISTE ALOJAMENTO
-        //    ACTIVO PARA O MESMO CLIENTE E DOMÍNIO
+        // 3. Procurar alojamento activo
         // ==========================================
 
         $alojamentoExistente = $this->alojamentoModel
-            ->where('cliente_id', $pedido['cliente_id'])
-            ->where('dominio_id', $item['dominio_id'])
+            ->where('cliente_id', $clienteId)
+            ->where('dominio_id', $dominioId)
+            ->where('produto_id', $produtoId)
             ->where('estado', 'Activo')
             ->first();
 
+
+        // ==========================================
+        // 4. Se já existe → RENOVAÇÃO
+        // ==========================================
+
         if ($alojamentoExistente) {
-            throw new \Exception(
-                'Já existe um alojamento activo para este cliente e domínio.'
+
+            $dataBase = new \DateTime(
+                $alojamentoExistente['expiracao']
             );
+
+            $novaExpiracao = $this->calcularExpiracao(
+                $dataBase,
+                $periodo
+            );
+
+
+            $this->alojamentoModel->update(
+                $alojamentoExistente['id'],
+                [
+                    'expiracao' => $novaExpiracao->format('Y-m-d'),
+                    'estado' => 'Activo'
+                ]
+            );
+
+
+            return [
+                'sucesso' => true,
+                'mensagem' =>
+                'Alojamento renovado com sucesso.'
+            ];
         }
 
 
         // ==========================================
-        // 9. CRIAR ALOJAMENTO
+        // 5. Não existe → NOVO ALOJAMENTO
         // ==========================================
 
-        $dadosAlojamento = [
-            'cliente_id' => $pedido['cliente_id'],
-            'produto_id' => $item['produto_id'],
-            'dominio_id' => $item['dominio_id'],
-            'inicio' => $dataInicio,
-            'expiracao' => $dataExpiracao,
+        $dataInicio = new \DateTime();
+
+        $dataExpiracao = $this->calcularExpiracao(
+            $dataInicio,
+            $periodo
+        );
+
+
+        $dados = [
+            'cliente_id' => $clienteId,
+            'dominio_id' => $dominioId,
+            'produto_id' => $produtoId,
+            'inicio' => $dataInicio->format('Y-m-d'),
+            'expiracao' => $dataExpiracao->format('Y-m-d'),
             'estado' => 'Activo'
         ];
 
 
-        $alojamentoId = $this->alojamentoModel
-            ->insert($dadosAlojamento);
+        $this->alojamentoModel->insert($dados);
 
-
-        // ==========================================
-        // 10. CONFIRMAR CRIAÇÃO
-        // ==========================================
-
-        if (!$alojamentoId) {
-            throw new \Exception(
-                'Não foi possível criar o alojamento.'
-            );
-        }
-
-
-        // ==========================================
-        // 11. RETORNAR RESULTADO
-        // ==========================================
 
         return [
             'sucesso' => true,
-            'mensagem' => 'Alojamento provisionado com sucesso.',
-            'alojamento_id' => $alojamentoId,
-            'inicio' => $dataInicio,
-            'expiracao' => $dataExpiracao
+            'mensagem' =>
+            'Alojamento provisionado com sucesso.'
         ];
     }
 
@@ -1219,5 +1123,328 @@ class ProvisionamentoService
             'inicio' => $dataInicio,
             'prazo' => $dataPrazo
         ];
+    }
+    public function processarPedido($pedidoId)
+    {
+        // ==========================================
+        // 1. PROCURAR O PEDIDO
+        // ==========================================
+
+        $pedido = $this->pedidoModel->find($pedidoId);
+
+        if (!$pedido) {
+            return [
+                'sucesso' => false,
+                'mensagem' => 'Pedido não encontrado.'
+            ];
+        }
+
+
+        // ==========================================
+        // 2. VERIFICAR SE O PEDIDO ESTÁ PAGO
+        // ==========================================
+
+        if (
+            $pedido['estado'] !== 'Pago' &&
+            $pedido['estado'] !== 'Processando'
+        ) {
+            return [
+                'sucesso' => false,
+                'mensagem' => 'O pedido ainda não está pago.'
+            ];
+        }
+
+
+        // ==========================================
+        // 3. BUSCAR OS ITENS DO PEDIDO
+        // ==========================================
+
+        $itens = $this->itemPedidoModel
+            ->where('pedido_id', $pedidoId)
+            ->findAll();
+
+        if (empty($itens)) {
+            return [
+                'sucesso' => false,
+                'mensagem' => 'O pedido não possui itens.'
+            ];
+        }
+
+
+        // ==========================================
+        // 4. RESULTADOS
+        // ==========================================
+
+        $resultados = [];
+
+        $todosConcluidos = true;
+
+
+        // ==========================================
+        // 5. PROCESSAR CADA ITEM
+        // ==========================================
+
+        foreach ($itens as $item) {
+
+            try {
+
+                // ----------------------------------
+                // 5.1 Identificar tipo de serviço
+                // ----------------------------------
+
+                $tipoServico = $this->identificarTipoServico(
+                    $item
+                );
+
+
+                // ----------------------------------
+                // 5.2 Verificar provisionamento existente
+                // ----------------------------------
+
+                $provisionamento = $this->provisionamentoModel
+                    ->where('item_pedido_id', $item['id'])
+                    ->first();
+
+
+                // ----------------------------------
+                // 5.3 Se já estiver concluído,
+                // não executar novamente
+                // ----------------------------------
+
+                if ($provisionamento) {
+
+                    if ($provisionamento['estado'] === 'Concluido') {
+
+                        $resultados[] = [
+                            'item_pedido_id' => $item['id'],
+                            'provisionamento_id' => $provisionamento['id'],
+                            'tipo_servico' => $provisionamento['tipo_servico'],
+                            'sucesso' => true,
+                            'mensagem' => 'Item já foi provisionado anteriormente.'
+                        ];
+
+                        continue;
+                    }
+
+                    // Se existe mas não está concluído,
+                    // utilizamos o provisionamento existente.
+
+                    $provisionamentoId = $provisionamento['id'];
+                } else {
+
+                    // ----------------------------------
+                    // 5.4 Criar novo provisionamento
+                    // ----------------------------------
+
+                    $provisionamentoId =
+                        $this->provisionamentoModel->insert([
+                            'pedido_id' => $pedidoId,
+                            'item_pedido_id' => $item['id'],
+                            'tipo_servico' => $tipoServico,
+                            'estado' => 'Pendente',
+                            'mensagem' => 'Provisionamento criado automaticamente.'
+                        ]);
+
+
+                    if (!$provisionamentoId) {
+
+                        throw new \Exception(
+                            'Não foi possível criar o provisionamento.'
+                        );
+                    }
+                }
+
+
+                // ==================================
+                // 6. EXECUTAR PROVISIONAMENTO
+                // ==================================
+
+                $resultado = $this->executar(
+                    $provisionamentoId
+                );
+
+
+                // ==================================
+                // 7. REGISTAR RESULTADO
+                // ==================================
+
+                $resultados[] = [
+                    'item_pedido_id' => $item['id'],
+                    'provisionamento_id' => $provisionamentoId,
+                    'tipo_servico' => $tipoServico,
+                    'sucesso' => $resultado['sucesso'],
+                    'mensagem' => $resultado['mensagem']
+                ];
+
+
+                // Se algum falhar, o pedido não está
+                // totalmente concluído.
+
+                if (!$resultado['sucesso']) {
+                    $todosConcluidos = false;
+                }
+            } catch (\Exception $e) {
+
+                $todosConcluidos = false;
+
+                $resultados[] = [
+                    'item_pedido_id' => $item['id'],
+                    'sucesso' => false,
+                    'mensagem' => $e->getMessage()
+                ];
+            }
+        }
+
+
+        // ==========================================
+        // 8. ACTUALIZAR ESTADO DO PEDIDO
+        // ==========================================
+
+        if ($todosConcluidos) {
+
+            $this->pedidoModel->update(
+                $pedidoId,
+                [
+                    'estado' => 'Concluido'
+                ]
+            );
+        } else {
+
+            $this->pedidoModel->update(
+                $pedidoId,
+                [
+                    'estado' => 'Processando'
+                ]
+            );
+        }
+
+
+        // ==========================================
+        // 9. RETORNAR RESULTADO
+        // ==========================================
+
+        return [
+            'sucesso' => $todosConcluidos,
+            'mensagem' => $todosConcluidos
+                ? 'Todos os serviços do pedido foram provisionados com sucesso.'
+                : 'O pedido foi processado, mas existem serviços pendentes ou com erro.',
+            'pedido_id' => $pedidoId,
+            'estado_pedido' => $todosConcluidos
+                ? 'Concluido'
+                : 'Processando',
+            'resultados' => $resultados
+        ];
+    }
+    private function identificarTipoServico($item)
+    {
+        // Procurar o produto
+        $produto = $this->produtoModel
+            ->find($item['produto_id']);
+
+        if (!$produto) {
+            throw new \Exception(
+                'Produto não encontrado.'
+            );
+        }
+
+        // Procurar a categoria do produto
+        $categoria = $this->categoriaModel
+            ->find($produto['categoria_id']);
+
+        if (!$categoria) {
+            throw new \Exception(
+                'Categoria do produto não encontrada.'
+            );
+        }
+
+        // Identificar o tipo de serviço
+        switch (strtolower(trim($categoria['nome']))) {
+
+            case 'domínios':
+            case 'dominios':
+                return 'Dominio';
+
+            case 'hosting':
+                return 'Alojamento';
+
+            case 'serviço de email':
+            case 'servico de email':
+                return 'Servico de Email';
+
+            case 'certificado ssl':
+                return 'Certificado SSL';
+
+            case 'hospedagem vps':
+                return 'Hospedagem VPS';
+
+            case 'website':
+                return 'Website';
+
+            default:
+                throw new \Exception(
+                    'Categoria do produto não corresponde a um serviço provisionável.'
+                );
+        }
+    }
+    private function calcularExpiracao(\DateTime $dataBase, string $periodo)
+    {
+        $periodo = strtolower(trim($periodo));
+
+
+        switch ($periodo) {
+
+            case '1 ano':
+
+                $dataBase->modify('+1 year');
+
+                break;
+
+
+            case '2 anos':
+
+                $dataBase->modify('+2 years');
+
+                break;
+
+
+            case '3 anos':
+
+                $dataBase->modify('+3 years');
+
+                break;
+
+
+            case '1 mês':
+            case '1 mes':
+
+                $dataBase->modify('+1 month');
+
+                break;
+
+
+            case '3 meses':
+
+                $dataBase->modify('+3 months');
+
+                break;
+
+
+            case '6 meses':
+
+                $dataBase->modify('+6 months');
+
+                break;
+
+
+            default:
+
+                throw new \Exception(
+                    'Período de alojamento não suportado: '
+                        . $periodo
+                );
+        }
+
+
+        return $dataBase;
     }
 }
