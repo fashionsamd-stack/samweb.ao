@@ -448,123 +448,57 @@ class ProvisionamentoService
     /**
      * Provisionamento de serviço de e-mail
      */
+
     private function provisionarServicoEmail($pedido, $item, $produto)
     {
-        // ==========================================
-        // 1. VERIFICAR DOMÍNIO ASSOCIADO
-        // ==========================================
-
+        // 1. Validar domínio associado
         if (empty($item['dominio_id'])) {
             throw new \Exception(
                 'O item do pedido não possui um domínio associado.'
             );
         }
 
-
-        // ==========================================
-        // 2. PROCURAR DOMÍNIO
-        // ==========================================
-
+        // 2. Procurar domínio
         $dominio = $this->dominioModel
             ->find($item['dominio_id']);
 
         if (!$dominio) {
-            throw new \Exception(
-                'Domínio não encontrado.'
-            );
+            throw new \Exception('Domínio não encontrado.');
         }
 
-
-        // ==========================================
-        // 3. CONFIRMAR QUE O DOMÍNIO PERTENCE
-        //    AO CLIENTE DO PEDIDO
-        // ==========================================
-
-        if ($dominio['cliente_id'] != $pedido['cliente_id']) {
+        // 3. Validar proprietário do domínio
+        if ((int) $dominio['cliente_id'] !== (int) $pedido['cliente_id']) {
             throw new \Exception(
                 'O domínio não pertence ao cliente do pedido.'
             );
         }
 
-
-        // ==========================================
-        // 4. CONFIRMAR QUE O DOMÍNIO ESTÁ ACTIVO
-        // ==========================================
-
-        if (isset($dominio['estado']) && $dominio['estado'] != 1) {
+        // 4. Validar estado do domínio
+        if ((int) $dominio['estado'] !== 1) {
             throw new \Exception(
-                'O domínio não está activo. Não é possível activar o serviço de email.'
+                'O domínio não está activo.'
             );
         }
 
+        // 5. Validar período
+        $periodo = strtolower(trim($item['periodo'] ?? ''));
 
-        // ==========================================
-        // 5. VERIFICAR PERÍODO
-        // ==========================================
-
-        if (empty($item['periodo'])) {
+        if ($periodo === '') {
             throw new \Exception(
-                'O período do serviço de email não está definido no item do pedido.'
+                'O período do serviço de email não está definido.'
             );
         }
 
-        $periodo = trim(
-            strtolower($item['periodo'])
-        );
+        // Validar o período antes de modificar qualquer registo.
+        $periodosPermitidos = ['1 ano', '2 anos'];
 
-
-        // ==========================================
-        // 6. DATA DE INÍCIO
-        // ==========================================
-
-        $inicio = new \DateTime();
-
-
-        // ==========================================
-        // 7. CALCULAR EXPIRAÇÃO
-        // ==========================================
-
-        $expiracao = clone $inicio;
-
-        switch ($periodo) {
-
-            case '1 ano':
-
-                $expiracao->modify('+1 year');
-
-                break;
-
-
-            case '2 anos':
-
-                $expiracao->modify('+2 years');
-
-                break;
-
-
-            default:
-
-                throw new \Exception(
-                    'Período de serviço de email não suportado: '
-                        . $item['periodo']
-                );
+        if (!in_array($periodo, $periodosPermitidos, true)) {
+            throw new \Exception(
+                'Período de serviço de email não suportado: ' . $periodo
+            );
         }
 
-
-        // ==========================================
-        // 8. FORMATAR DATAS
-        // ==========================================
-
-        $dataInicio = $inicio->format('Y-m-d');
-
-        $dataExpiracao = $expiracao->format('Y-m-d');
-
-
-        // ==========================================
-        // 9. VERIFICAR SE JÁ EXISTE SERVIÇO
-        //    DE EMAIL ACTIVO
-        // ==========================================
-
+        // 6. Procurar serviço de email activo
         $emailExistente = $this->servicoEmailModel
             ->where('cliente_id', $pedido['cliente_id'])
             ->where('dominio_id', $item['dominio_id'])
@@ -572,34 +506,69 @@ class ProvisionamentoService
             ->where('estado', 'Activo')
             ->first();
 
+        // 7. Serviço existente: RENOVAÇÃO
         if ($emailExistente) {
-            throw new \Exception(
-                'Já existe um serviço de email activo para este domínio.'
+
+            $hoje = new \DateTimeImmutable('today');
+
+            $expiracaoActual = new \DateTimeImmutable(
+                $emailExistente['expiracao']
             );
+
+            // Se ainda não expirou, acrescentar tempo
+            // à data de expiração existente.
+            $dataBase = $expiracaoActual > $hoje
+                ? $expiracaoActual
+                : $hoje;
+
+            $novaExpiracao = $this->calcularExpiracaoEmail(
+                $dataBase,
+                $periodo
+            );
+
+            $actualizado = $this->servicoEmailModel->update(
+                $emailExistente['id'],
+                [
+                    'expiracao' => $novaExpiracao->format('Y-m-d'),
+                    'estado' => 'Activo'
+                ]
+            );
+
+            if (!$actualizado) {
+                throw new \Exception(
+                    'Não foi possível renovar o serviço de email.'
+                );
+            }
+
+            return [
+                'sucesso' => true,
+                'mensagem' => 'Serviço de email renovado com sucesso.',
+                'servico_email_id' => $emailExistente['id'],
+                'inicio' => $emailExistente['inicio'],
+                'expiracao_anterior' => $emailExistente['expiracao'],
+                'expiracao' => $novaExpiracao->format('Y-m-d')
+            ];
         }
 
+        // 8. Serviço inexistente: NOVO PROVISIONAMENTO
+        $inicio = new \DateTimeImmutable('today');
 
-        // ==========================================
-        // 10. CRIAR SERVIÇO DE EMAIL
-        // ==========================================
+        $expiracao = $this->calcularExpiracaoEmail(
+            $inicio,
+            $periodo
+        );
 
         $dadosEmail = [
             'cliente_id' => $pedido['cliente_id'],
             'dominio_id' => $item['dominio_id'],
             'produto_id' => $item['produto_id'],
-            'inicio' => $dataInicio,
-            'expiracao' => $dataExpiracao,
+            'inicio' => $inicio->format('Y-m-d'),
+            'expiracao' => $expiracao->format('Y-m-d'),
             'estado' => 'Activo'
         ];
 
-
         $servicoEmailId = $this->servicoEmailModel
             ->insert($dadosEmail);
-
-
-        // ==========================================
-        // 11. CONFIRMAR CRIAÇÃO
-        // ==========================================
 
         if (!$servicoEmailId) {
             throw new \Exception(
@@ -607,17 +576,12 @@ class ProvisionamentoService
             );
         }
 
-
-        // ==========================================
-        // 12. RETORNAR RESULTADO
-        // ==========================================
-
         return [
             'sucesso' => true,
             'mensagem' => 'Serviço de email provisionado com sucesso.',
             'servico_email_id' => $servicoEmailId,
-            'inicio' => $dataInicio,
-            'expiracao' => $dataExpiracao
+            'inicio' => $inicio->format('Y-m-d'),
+            'expiracao' => $expiracao->format('Y-m-d')
         ];
     }
 
@@ -1444,6 +1408,68 @@ class ProvisionamentoService
                 );
         }
 
+
+        return $dataBase;
+    }
+
+    private function calcularExpiracaoEmail(
+        \DateTimeImmutable $dataBase,
+        string $periodo
+    ): \DateTimeImmutable {
+
+        switch ($periodo) {
+            case '1 ano':
+                return $dataBase->modify('+1 year');
+
+            case '2 anos':
+                return $dataBase->modify('+2 years');
+
+            default:
+                throw new \Exception(
+                    'Período de serviço de email não suportado: '
+                        . $periodo
+                );
+        }
+    }
+    private function calcularExpiracaoDominio(
+        \DateTime $dataBase,
+        string $periodo
+    ) {
+        $periodo = strtolower(trim($periodo));
+
+        switch ($periodo) {
+
+            case '1 ano':
+                $dataBase->modify('+1 year');
+                break;
+
+            case '2 anos':
+                $dataBase->modify('+2 years');
+                break;
+
+            case '3 anos':
+                $dataBase->modify('+3 years');
+                break;
+
+            case '1 mês':
+            case '1 mes':
+                $dataBase->modify('+1 month');
+                break;
+
+            case '3 meses':
+                $dataBase->modify('+3 months');
+                break;
+
+            case '6 meses':
+                $dataBase->modify('+6 months');
+                break;
+
+            default:
+                throw new \Exception(
+                    'Período de domínio não suportado: '
+                        . $periodo
+                );
+        }
 
         return $dataBase;
     }
